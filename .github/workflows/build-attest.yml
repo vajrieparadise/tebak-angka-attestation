@@ -1,0 +1,71 @@
+# Workflow ini MENGAMBIL source code Python
+# sungguhan dari repo (src/tebak_angka.py),
+# MENGEMASNYA jadi satu file distribusi (.zip)
+# — ini pola PACKAGING nyata, sama seperti
+# banyak tool Python didistribusikan di dunia
+# nyata — lalu membuat Attestation untuk
+# hasil packaging itu
+name: Build dan Attest Tebak Angka
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-attest:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+
+    steps:
+      # LANGKAH 1 — checkout: menyalin ISI REPO
+      # (termasuk src/tebak_angka.py) ke dalam
+      # runner (komputer virtual sementara) ini
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # LANGKAH 2 — uji dulu source code-nya
+      # BENAR-BENAR bisa jalan, sebelum di-package
+      # (bukti ini program sungguhan, bukan file
+      # kosong asal buat)
+      - name: Uji coba program dari source code
+        run: |
+          python3 src/tebak_angka.py 7
+          python3 src/tebak_angka.py 3
+
+      # LANGKAH 3 — build/packaging: DI SINI
+      # source code DIBACA dan DIKEMAS jadi satu
+      # file distribusi (.zip), ini ARTIFACT
+      # sesungguhnya yang nanti di-attest
+      - name: Kemas source code jadi artifact zip
+        run: |
+          mkdir -p dist
+          cd src
+          zip ../dist/tebak-angka.zip tebak_angka.py
+          cd ..
+
+      # LANGKAH 4 — hitung digest SHA-256 dari
+      # ARTIFACT hasil packaging (BUKAN dari
+      # source code mentahnya)
+      - name: Hitung digest artifact
+        run: sha256sum dist/tebak-angka.zip
+
+      # LANGKAH 5 — buat attestation, subject-path
+      # HARUS menunjuk PERSIS ke file hasil
+      # packaging Langkah 3
+      - name: Buat attestation untuk artifact
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: 'dist/tebak-angka.zip'
+
+      # LANGKAH 6 — upload artifact ke Artifact
+      # Storage supaya bisa diunduh manusia,
+      # path JUGA HARUS sama persis
+      - name: Upload artifact zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: tebak-angka-zip
+          path: dist/tebak-angka.zip
